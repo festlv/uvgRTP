@@ -172,6 +172,8 @@ rtp_error_t uvgrtp::formats::h265::fu_division(uint8_t* data, size_t data_len, s
     initialize_fu_headers(get_nal_type(data), headers->fu_headers);
 
     uvgrtp::buf_vec* buffers = fqueue_->get_buffer_vector();
+    if (!buffers->empty())
+        buffers->clear();
 
     // the default structure of one fragment
     buffers->push_back(std::make_pair(sizeof(headers->payload_header), headers->payload_header));

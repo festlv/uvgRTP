@@ -140,6 +140,45 @@ TEST(FormatTests, h264_fragmentation)
     cleanup_sess(ctx, sess);
 }
 
+TEST(FormatTests, h264_fragmentation_multiple)
+{
+    std::cout << "Starting h264 fragmentation test with multiple packets requiring fragmentation" << std::endl;
+    uvgrtp::context ctx;
+    uvgrtp::session* sess = ctx.create_session(LOCAL_ADDRESS);
+
+    uvgrtp::media_stream* sender = nullptr;
+    uvgrtp::media_stream* receiver = nullptr;
+
+    if (sess)
+    {
+        sender = sess->create_stream(SEND_PORT, RECEIVE_PORT, RTP_FORMAT_H264, RCE_NO_FLAGS);
+        receiver = sess->create_stream(RECEIVE_PORT, SEND_PORT, RTP_FORMAT_H264, RCE_NO_FLAGS);
+    }
+
+    // the default packet limit for RTP is 1458 where 12 bytes are dedicated to RTP header
+    // to trigger the bug, need to provide at least two NAL units that require fragmentation in the same call to push_frame
+    size_t size = 5000;
+    size_t total_size = size * 2;
+    int rtp_flags = RTP_NO_FLAGS;
+    int nal_type = 5;
+    rtp_format_t format = RTP_FORMAT_H264;
+    int test_runs = 10;
+    //create an intra-frame NAL
+    std::unique_ptr<uint8_t[]> intra_frame = create_test_packet(format, nal_type, true, size, rtp_flags);
+
+    //create a frame that repeats the same NAL twice
+    std::unique_ptr<uint8_t[]> test_frame = std::unique_ptr<uint8_t[]>(new uint8_t[total_size]);
+    for (size_t i=0; i < size; i++) {
+        test_frame[i] = intra_frame[i];
+        test_frame[size + i] = intra_frame[i];
+    }
+    test_packet_size(std::move(test_frame), test_runs, total_size, sess, sender, receiver, rtp_flags);
+
+    cleanup_ms(sess, sender);
+    cleanup_ms(sess, receiver);
+    cleanup_sess(ctx, sess);
+}
+
 TEST(FormatTests, h265_single_nal_unit)
 {
     std::cout << "Starting H265 Single NAL unit test" << std::endl;
